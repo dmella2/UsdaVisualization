@@ -20,14 +20,14 @@ I will start with the following commodities:
 
 I will start downloading data from these tables "U.S Supply and Use".
 
-
+--------------------------------
 Tasks to implememnt in Flask:
 
 -Create data visualization in Python Flask.
 
 -Use Blueprints
 
-
+--------------------------------------
 Tasks to implement in Python (backend):
 
 -Download data xml format
