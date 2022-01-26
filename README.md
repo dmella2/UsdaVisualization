@@ -42,12 +42,12 @@ Tasks to implement in Python (backend):
 
 -Make gis chart
 
-
+----------------------------------
 IMPORTANT
 
 -Create Tutorial
 
-
+-------------------------------------
 I will be adding more tasks and STEPS in the future (I hope).
 
 
