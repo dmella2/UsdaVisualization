@@ -1,5 +1,5 @@
 # UsdaVisualization
-The idea of this project is to implement data visualization using the USDA different reports.
+The idea of this project is to implement data visualization using the USDA different reports (Currently not functional).
 
 
 STEP 1. WASDE REPORTS.
