@@ -111,6 +111,7 @@ class CommodityInizialization(BaseCommodity):
 		"""
 		tabula-py does not look accurate to parse the pdf document. 
 		Research more
+		https://arxiv.org/ftp/arxiv/papers/2004/2004.12629.pdf
 		"""
 
 
