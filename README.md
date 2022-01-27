@@ -5,7 +5,7 @@ The idea of this project is to implement data visualization using the USDA diffe
 STEP 1. WASDE REPORTS.
 
 The goal is to make nice visualization using data from the World Agricultural Supply and Demand Estimates (WASDE).
-The approach is to go to https://www.usda.gov/oce/commodity/wasde and download the reports in XML format.
+The approach is to go to https://www.usda.gov/oce/commodity/wasde and download the reports in XML format. Then go to https://usda.library.cornell.edu/concern/publications/3t945q76s?locale=en#release-items.
 I will start with the following commodities:
 
 -corn
@@ -20,6 +20,7 @@ I will start with the following commodities:
 
 I will start downloading data from these tables "U.S Supply and Use".
 
+Important: there is only XML availiby from 2010 until the present. Older documents are in txt, xls, and pdf. 
 --------------------------------
 Tasks to implememnt in Flask:
 
