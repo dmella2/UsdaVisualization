@@ -1,5 +1,8 @@
 import requests
+import time
+import pandas as pd
 from bs4 import BeautifulSoup
+import xml.etree.ElementTree as ET
 from abc import ABCMeta, abstractmethod
 
 class BaseCommodity(metaclass = ABCMeta):
@@ -72,6 +75,17 @@ class CommodityInizialization(BaseCommodity):
 	def __init__(self, commodity, year, month):
 		super().__init__(commodity, year, month)
 
+	def GetDataFromFolder(self, fileRoot):
+		soup = BeautifulSoup(open(fileRoot,"r"))
+		return soup
+
+	def GetDataFromFolder1(self, fileRoot):
+		#print(soup, "__")
+		data = ET.parse(fileRoot)
+		root = data.getroot()
+		rs = ET.tostring(root, encoding='unicode')
+		soup = BeautifulSoup(rs, "xml")
+		return soup
 
 	def DownloadDataWASDE(self):
 		"""
@@ -83,8 +97,7 @@ class CommodityInizialization(BaseCommodity):
 		print(self.data, self.url)
 		self.data_to_string = self.data.content.decode("utf-8")
 		soup = BeautifulSoup(self.data_to_string, "xml")
-		wheat = soup.find("sr11")
-		return wheat
+		return soup
 
 	def DownloadDataCornell(self, page):
 		"""
@@ -111,18 +124,15 @@ class CommodityInizialization(BaseCommodity):
 		"""
 		tabula-py does not look accurate to parse the pdf document. 
 		Research more
-		https://arxiv.org/ftp/arxiv/papers/2004/2004.12629.pdf
 		"""
 
 
 	def SplitData(self):
 		pass
 		
-inizialization = CommodityInizialization("Hola", "22", "01")
-print(inizialization.DownloadDataWASDE())
-#print(inizialization.baseurl)
 
-class USWheat(BaseCommodity):
+
+class USWheat:
 	"""
 	This class is going to download data from the usda report (fix this. Do not need to download the data), 
 	then get the wheat indentifier "sr11" and filter to get the two wheat table.
@@ -135,19 +145,89 @@ class USWheat(BaseCommodity):
 			year
 			commodity Name
 	"""
-	def __init__(self, commodity, year, month):
-		self.url = None
-		self.data = None
-		self.data_to_string = None
-		self.pass_to_xml = None
+	def __init__(self, data):
+		self.data = data
+		self.matrix1 = None
+		self.matrix2 = None
+		self.m1_attribute_group = None
+		self.dictionary = {}
+		self.splitMatrix()
 
 	def splitMatrix(self):
 		#split data in matrix1 and matrix2
-		pass
+		self.matrix1 = self.data.find("matrix1")
+		self.m1_attribute_group = self.matrix1.findAll("m1_attribute_group")
+		self.matrix2 = self.data.find("matrix2")
 
-	def matrix1(self):
-		#Get first Matrix
-		pass
+	def m1_filler1(self):
+		"""
+		matrix1
+			m1_filler
+		"""
+		#Header = m1_filler1
+		head = self.matrix1.find("m1_filler1")
+		return head
+
+	def m1_year_group(self): #Name Row Matrix
+		"""
+		This part is going to be able to get the head of the document.
+		UD = Unit Description
+		Year Month UD| Year Est Month UD| Year Proj Month UD|Year Proj Month UD
+		"""
+		head = self.m1_filler1()
+		rowHead = head.findAll("m1_year_group")
+		for i in rowHead:
+			getYear = i.get("market_year1")
+			getMonth = i.find("m1_month_group").get("forecast_month1")
+			getUnitDescription = i.find("Cell").get("m1_unit_descr1")
+			print(getYear, "*", getMonth, "*", getUnitDescription)
+
+	def attribute1_values(self, data, name):
+		year = data.get("market_year1")
+		print(year, ":_")
+		if name not in self.dictionary:
+			self.dictionary[name] = []
+		for cell in data:
+			month = cell.find("m1_month_group").get("forecast_month1")
+			value = cell.find("Cell").get("cell_value1")
+			self.dictionary[name].append([year, month, value]) 
+
+	def attribute1(self):
+		maintable = self.m1_attribute_group
+		for row in maintable:
+			rowAttribute = row.find("attribute1")
+			name = rowAttribute.get("attribute1")
+			rowCollection = rowAttribute.find("m1_year_group_Collection")
+			yearGroup = rowCollection.findAll("m1_year_group")
+			#print(yearGroup, "\n")
+			print("\n", name)
+			for yearGroupValue in yearGroup:
+				self.attribute1_values(yearGroupValue, name)
+		#print(self.dictionary)	
+		self.transformDictToPandas()
+
+	def transformDictToPandas(self):
+		firstElement = list(self.dictionary.keys())[0]
+		ValuesFirstElement = self.dictionary[firstElement]
+		columns = [i[0] for i in ValuesFirstElement]
+		result = [[j[2] for j in i] for i in self.dictionary.values()]
+		result = pd.DataFrame(result, columns = columns)
+		print(result)
+		#I need to add the Header of the DataFrame
+		
+
+		"""
+		for row in maintable:
+			rowAttribute = row.find("attribute1")
+			name = rowAttribute.get("attribute1")
+			fields= rowAttribute.findAll("m1_year_group_Collection")
+			for cell in row:
+				cell_element = cell.findAll("Cell")
+				cell_value = [i.get("cell_value1") for i in cell_element if i.get("cell_value1") != None]
+				if len(cell_value) > 0:
+					values.append(cell_value)
+		"""
+
 
 	def matrix2(slef):
 		#get second
@@ -161,52 +241,24 @@ class USWheat(BaseCommodity):
 		#Get the value of the row
 		pass
 
+start = time.time()
+myfile = "../../data/usda/wasde/wasde0122.xml"
+inizialization = CommodityInizialization("Hola", "22", "01")
+#wasdedata = inizialization.GetDataFromFolder1(myfile) #Does not work yet Fix this part
+wasdedata = inizialization.DownloadDataWASDE()
+end = time.time()
+print("Time to download data", end - start)
+##Split data by commodity identifier
+wheat = wasdedata.find("sr11")
+tw = USWheat(wheat).attribute1()
+end1 = time.time()
+print("Time to process data", end1 - start)
+
+
+##Next Task
 """
-url = "https://www.usda.gov/oce/commodity/wasde/wasde0122.xml"
-data = requests.get(url = url)
-data_to_string = data.content.decode('utf-8')
-soup = BeautifulSoup(data_to_string,'xml')
-#print(soup)
+1) wasdedata = inizialization.GetDataFromFolder1(myfile) #Does not work yet Fix this part
 
-##Wheat sr11
-wheat = soup.find("sr11")
-#First Table
-matrix1 = wheat.find("matrix1")
-"""
-"""
-m1_attribute_group_Collection
-	m1_attribute_group
-		-Area Planted
-		-Area Harvested
-		...
-		-Avg.FarmPrice ($/bu)  2/  
-m1_attribute_group
-	m1_filler1
-	attribute1 (Area Planted)
-	m1_filler2
-	m1_filler3
-"""
-"""
-#Header = m1_filler1
-head = matrix1.find("m1_filler1")
-maintable = matrix1.findAll("m1_attribute_group")
-values = []
-for row in maintable:
-	rowAttribute = row.find("attribute1")
-	name = rowAttribute.get("attribute1")
-	fields= rowAttribute.findAll("m1_year_group_Collection")
-	for cell in row:
-		cell_element = cell.findAll("Cell")
-		cell_value = [i.get("cell_value1") for i in cell_element if i.get("cell_value1") != None]
-		if len(cell_value) > 0:
-			values.append(cell_value)
-
-
-	print(name, "\n")
-print(values, len(values))
-
-
-#Second Table
-matrix2 = wheat.find("matrix2")
-
+2) Second Table
+#matrix2 = wheat.find("matrix2")
 """
