@@ -15,6 +15,7 @@ class BaseCommodity(metaclass = ABCMeta):
 		self.data = None
 		self.data_to_string = None
 		self.pass_to_xml = None
+		self.getDataFromFolder = False
 
 	@abstractmethod
 	def DownloadDataWASDE(self):
@@ -85,6 +86,7 @@ class CommodityInizialization(BaseCommodity):
 		root = data.getroot()
 		rs = ET.tostring(root, encoding='unicode')
 		soup = BeautifulSoup(rs, "xml")
+		self.getDataFromFolder = True
 		return soup
 
 	def DownloadDataWASDE(self):
@@ -97,6 +99,7 @@ class CommodityInizialization(BaseCommodity):
 		print(self.data, self.url)
 		self.data_to_string = self.data.content.decode("utf-8")
 		soup = BeautifulSoup(self.data_to_string, "xml")
+		self.getDataFromFolder = False
 		return soup
 
 	def DownloadDataCornell(self, page):
@@ -112,6 +115,7 @@ class CommodityInizialization(BaseCommodity):
 		thead = table.find("thead")
 		tbody = table.find("tbody")
 		tbody_tr = tbody.findAll("tr")
+		self.getDataFromFolder = False
 		pass
 
 	def DownloadDataCornellLink(self):
@@ -145,11 +149,12 @@ class USWheat:
 			year
 			commodity Name
 	"""
-	def __init__(self, data):
+	def __init__(self, data, getDataFromFolder):
 		self.data = data
 		self.matrix1 = None
 		self.matrix2 = None
 		self.m1_attribute_group = None
+		self.getDataFromFolder = getDataFromFolder
 		self.dictionary = {}
 		self.splitMatrix()
 
@@ -184,13 +189,20 @@ class USWheat:
 
 	def attribute1_values(self, data, name):
 		year = data.get("market_year1")
-		print(year, ":_")
 		if name not in self.dictionary:
 			self.dictionary[name] = []
-		for cell in data:
-			month = cell.find("m1_month_group").get("forecast_month1")
-			value = cell.find("Cell").get("cell_value1")
-			self.dictionary[name].append([year, month, value]) 
+
+		if self.getDataFromFolder == True:
+			    month = data.find("m1_month_group").get("forecast_month1")
+			    value = data.find("Cell").get("cell_value1")
+			    self.dictionary[name].append([year, month, value]) 
+		else:
+			for cell in data:
+				month = cell.find("m1_month_group").get("forecast_month1")
+				value = cell.find("Cell").get("cell_value1")
+				print(value, "___")
+				self.dictionary[name].append([year, month, value]) 
+		
 
 	def attribute1(self):
 		maintable = self.m1_attribute_group
@@ -228,10 +240,43 @@ class USWheat:
 					values.append(cell_value)
 		"""
 
-
-	def matrix2(slef):
+	###############################TABLE 2###########################
+	def matrix2(self):
 		#get second
 		pass
+
+	def m2_year_group(self):
+		data = self.matrix2.findAll("m2_year_group")
+		dictionary = {}
+		mylist = []
+		for index, i in enumerate(data):
+			print(index,"index")
+			year = i.get("market_year2")
+			subdata = i.find("m2_month_group")
+			name = subdata.get("attribute2")
+			dictionary[name] = {"year": year}
+			print(year, name, "*************")
+			sub_subdata = subdata.find("m2_attribute_group_Collection") #The second component using findAll is not relevant
+			row_ssdata = sub_subdata.findAll("m2_attribute_order")
+			internallist = [year, name]
+			if index == 0:
+				columnsName = ["Year", "Name"]
+			for elements in row_ssdata:
+				typecommodity = elements.get("attribute_group2").replace("\n", "").replace("\r", "")
+				unit_description = elements.find("m2_unit_descr1").get("m2_unit_descr1")
+				value_unit = elements.find("Cell").get("cell_value2")
+				print(typecommodity, "*", unit_description, "*", value_unit)
+				dictionary[name][typecommodity] = [unit_description, value_unit]
+				internallist.append(value_unit)
+				if index == 0:
+					columnsName.append(typecommodity)
+			mylist.append(internallist)
+
+		print(pd.DataFrame(mylist, columns = columnsName))
+		#print(dictionary)
+		#I am having Only Projected values. Where are the estimated values?
+		#Next convert table to pandas
+		#PLEASE REMEMBER: Soft Red Winter is measured in  Millions and White is measured in Bushels (Please: Fix)
 
 	def nameRowMatrix1(self):
 		#Get the name of the row
@@ -242,7 +287,7 @@ class USWheat:
 		pass
 
 start = time.time()
-myfile = "../../data/usda/wasde/wasde0122.xml"
+myfile = "../../data/usda/wasde/wasde1221.xml" #"../../data/usda/wasde/wasde0122.xml"
 inizialization = CommodityInizialization("Hola", "22", "01")
 #wasdedata = inizialization.GetDataFromFolder1(myfile) #Does not work yet Fix this part
 wasdedata = inizialization.DownloadDataWASDE()
@@ -250,7 +295,9 @@ end = time.time()
 print("Time to download data", end - start)
 ##Split data by commodity identifier
 wheat = wasdedata.find("sr11")
-tw = USWheat(wheat).attribute1()
+print(inizialization.getDataFromFolder, "________________")
+
+tw = USWheat(wheat, inizialization.getDataFromFolder).m2_year_group()
 end1 = time.time()
 print("Time to process data", end1 - start)
 
