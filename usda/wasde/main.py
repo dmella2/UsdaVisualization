@@ -149,12 +149,13 @@ class USWheat:
 			year
 			commodity Name
 	"""
-	def __init__(self, data, getDataFromFolder):
+	def __init__(self, data, getDataFromFolder, codeNumber):
 		self.data = data
 		self.matrix1 = None
 		self.matrix2 = None
 		self.m1_attribute_group = None
 		self.getDataFromFolder = getDataFromFolder
+		self.codeNumber = codeNumber
 		self.dictionary = {}
 		self.splitMatrix()
 
@@ -245,17 +246,71 @@ class USWheat:
 		#get second
 		pass
 
-	def m2_year_group(self):
+	def m2_year_group_corn(self):
+		data = self.matrix2.findAll("m2_attribute_group")
+		mylist = []
+		for index, i in enumerate(data):
+			#Header
+			yeardata= i.find("m2_filler1")
+			subdata_yeardata = yeardata.findAll("m2_year_group")
+			for row in subdata_yeardata:
+				yearhead = row.get("market_year2")
+				rowmonth = row.find("m2_month_group")
+				month = rowmonth.get("forecast_month2")
+			#Body table
+			bodydata = i.find("attribute2")
+			name = bodydata.get("attribute2")
+			subdata_bodydata = bodydata.findAll("m2_year_group")
+			mysublist = [name]
+			if index == 0:
+				columnsName = ["Name"]
+			#2019/20 || 2020/21 Est. || 2021/22 Proj.(Dec) || 2021/22 Proj.(Jan)
+			for row in subdata_bodydata:
+				yearbody = row.get("market_year2")
+				rowmonth = row.find("m2_month_group")
+				monthbody = rowmonth.get("forecast_month2")
+				valuebody = rowmonth.find("Cell").get("cell_value2")
+				mysublist.append(valuebody)
+				if index == 0:
+					toappend = yearbody
+					if monthbody != "": 
+						toappend = toappend  + "-" + monthbody
+					columnsName.append(toappend)
+			mylist.append(mysublist)
+		mypandasTable  = pd.DataFrame(mylist, columns = columnsName)
+		print(mypandasTable)
+
+
+	def m2_year_group_wheat(self):
+		#Wheat
+		"""
+		<m2_year_group_Collection>
+                    <m2_year_group market_year2="2020/21 (Est.) ">
+                        <m2_month_group_Collection>
+                            <m2_month_group attribute2="Beginning Stocks">
+                                <m2_attribute_group_Collection>
+                                    <m2_attribute_group forecast_month2="">
+                                        <m2_attribute_order_Collection>
+                                            <m2_attribute_order attribute_group2="Hard Red&#xD;&#xA;Winter">
+                                                <m2_unit_descr1 m2_unit_descr1="">
+                                                    <Cell cell_value2="506" />
+                <m2_attribute_group_Collection>
+                    <m2_attribute_group>
+                        <m2_filler1 m2_filler1="Filler">
+                            <m2_year_group_Collection>
+                                <m2_year_group market_year2="2019/20">
+                                    <m2_month_group_Collection>
+                                        <m2_month_group forecast_month2="">
+                                            <Cell m2_filler2="Filler" />
+        """
 		data = self.matrix2.findAll("m2_year_group")
 		dictionary = {}
 		mylist = []
 		for index, i in enumerate(data):
-			print(index,"index")
 			year = i.get("market_year2")
 			subdata = i.find("m2_month_group")
 			name = subdata.get("attribute2")
 			dictionary[name] = {"year": year}
-			print(year, name, "*************")
 			sub_subdata = subdata.find("m2_attribute_group_Collection") #The second component using findAll is not relevant
 			row_ssdata = sub_subdata.findAll("m2_attribute_order")
 			internallist = [year, name]
@@ -286,6 +341,77 @@ class USWheat:
 		#Get the value of the row
 		pass
 
+
+
+class USGrainAndCorn:
+	"""
+	This class is going to download data from the usda report (fix this. Do not need to download the data), 
+	then get the wheat indentifier "sr11" and filter to get the two wheat table.
+	Then is going to get the name of the rows, values, dates, etc.
+	The idea is to pass this to a tabular structure.
+
+	Fix:
+		I need to create a base clase, where I need to put as a entry parameters:
+			month
+			year
+			commodity Name
+	"""
+	def __init__(self, data, getDataFromFolder):
+		self.data = data
+		self.matrix1 = None
+		self.matrix2 = None
+		self.m1_attribute_group = None
+		self.getDataFromFolder = getDataFromFolder
+		self.dictionary = {}
+		self.splitMatrix()
+
+	def splitMatrix(self):
+		#split data in matrix1 and matrix2
+		self.matrix1 = self.data.find("matrix1")
+		self.m1_attribute_group = self.matrix1.findAll("m1_attribute_group")
+		self.matrix2 = self.data.find("matrix2")
+
+	def attribute1_values(self, data, name):
+		year = data.get("market_year1")
+		if name not in self.dictionary:
+			self.dictionary[name] = []
+
+		if self.getDataFromFolder == True:
+			    month = data.find("m1_month_group").get("forecast_month1")
+			    value = data.find("Cell").get("cell_value1")
+			    self.dictionary[name].append([year, month, value]) 
+		else:
+			for cell in data:
+				month = cell.find("m1_month_group").get("forecast_month1")
+				value = cell.find("Cell").get("cell_value1")
+				self.dictionary[name].append([year, month, value]) 
+
+	def attribute1(self):
+		maintable = self.m1_attribute_group
+		for row in maintable:
+			rowAttribute = row.find("attribute1")
+			name = rowAttribute.get("attribute1")
+			rowCollection = rowAttribute.find("m1_year_group_Collection")
+			yearGroup = rowCollection.findAll("m1_year_group")
+			#print(yearGroup, "\n")
+			#print("\n", name)
+			for yearGroupValue in yearGroup:
+				self.attribute1_values(yearGroupValue, name)
+		#print(self.dictionary)	
+		self.transformDictToPandas()
+
+	def transformDictToPandas(self):
+		firstElement = list(self.dictionary.keys())[0]
+		ValuesFirstElement = self.dictionary[firstElement]
+		columns = [i[0] for i in ValuesFirstElement]
+		result = [[j[2] for j in i] for i in self.dictionary.values()]
+		result = pd.DataFrame(result, columns = columns)
+		print(result)
+		#I need to add the Header of the DataFrame
+
+
+
+
 start = time.time()
 myfile = "../../data/usda/wasde/wasde1221.xml" #"../../data/usda/wasde/wasde0122.xml"
 inizialization = CommodityInizialization("Hola", "22", "01")
@@ -293,19 +419,27 @@ inizialization = CommodityInizialization("Hola", "22", "01")
 wasdedata = inizialization.DownloadDataWASDE()
 end = time.time()
 print("Time to download data", end - start)
+
 ##Split data by commodity identifier
-wheat = wasdedata.find("sr11")
+
+codeNumber = "sr13"
+wheat = wasdedata.find(codeNumber)
 print(inizialization.getDataFromFolder, "________________")
+tw = USWheat(wheat, inizialization.getDataFromFolder, codeNumber)
+tw.m2_year_group_corn()
+#tw.attribute1()
 
-tw = USWheat(wheat, inizialization.getDataFromFolder).m2_year_group()
-end1 = time.time()
-print("Time to process data", end1 - start)
-
-
-##Next Task
 """
-1) wasdedata = inizialization.GetDataFromFolder1(myfile) #Does not work yet Fix this part
+Next Task:
+The tables:
+-FEED GRAINS
+-CORN
+-SORGHUM
+-BARLEY
+-OATS
+-etc
 
-2) Second Table
-#matrix2 = wheat.find("matrix2")
+follows the same structure. The main difference, it is the location of the table (matrix1 or matrix2 or matrix3), this makes changes in the tag.
+Modify the main class to take in cosideration the previous point and be able to get.
+In total there are 15 (less or more) tables with this pattern  
 """
